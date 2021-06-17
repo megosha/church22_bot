@@ -20,6 +20,8 @@ structure = {"987654":
                   "contact": "891231231223",  # optional
                   "chat_id": 987654,
                   "last_message_id": 48,  # optional
+                  "last_message":"123", # optional
+                  "last_message_date":datetime,
                   "request": 0},  # optional
              }
              '''
