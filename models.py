@@ -25,10 +25,13 @@ class RDB():
             db.hset(chat_id, key, value)
         # return db.set(chat_id, body)
 
-    def get_item(self, chat_id: int, key):
+    def get_item_value(self, chat_id: int, key):
         if db.hget(chat_id, key):
             return db.hget(chat_id, key).decode()
         return None
+
+    def get_object(self, chat_id):
+        return db.hgetall(chat_id)
 
     def change_item(self, chat_id: int, key: str, val: str):
         db.hset(chat_id, key, val)

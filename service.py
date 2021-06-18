@@ -32,5 +32,5 @@ def returntomainmenu_keyboard(show_website=False):
     kboard = telebot.types.InlineKeyboardMarkup()
     if show_website:
         kboard.add(telebot.types.InlineKeyboardButton(text='Перейти на сайт', url=settings.get_env_value("website")))
-    kboard.add(telebot.types.InlineKeyboardButton(text='Вернуться к действиям', callback_data='menu'))
+    kboard.add(telebot.types.InlineKeyboardButton(text='Показать другие функции', callback_data='menu'))
     return kboard
