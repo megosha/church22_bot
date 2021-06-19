@@ -125,6 +125,9 @@ def send_welcome(message):
     bot.send_photo(message.chat.id, img)
     if not models.RDB().get_item_value(message.chat.id, 'name'):
         get_name(message)
+    else:
+        bot.send_message(message.chat.id, 'Выберите тему для Вашего обращения',
+                         reply_markup=service.render_keyboard(settings.ACTIONS, True))
 
 
 from threading import Thread
