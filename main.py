@@ -9,6 +9,7 @@ import constants
 
 # TODO ddos check
 # TODO edit message
+# TODO refactor send message to manager and admin to one method
 
 import service
 
@@ -114,19 +115,29 @@ def query_handler(call):
         elif call.data == 'ignored':
             message = call.message
             chat_id = message.chat.id
+
             users = models.RDB()
+            reserved_contact = users.get_item_value(message.chat.id, "contact")
+
             users.change_item(chat_id, "request", "3")
+
+            if not reserved_contact:
+                k_wargs = {"reply_markup": service.render_keyboard({f'private_{message.chat.id}': "Спросить контакты"})}
+            else:
+                k_wargs = {}
             bot.send_message(settings.get_env_value('admin'),
                              f'❌ ПОЛЬЗОВАТЕЛЬ НЕ ПОЛУЧИЛ КОНСУЛЬТАЦИЮ!\n'
                              f'Заявка №: {chat_id}_{users.get_item_value(chat_id, "last_message_id")}"\n'
                              f'Пользователь: @{users.get_item_value(chat_id, "username")}\n'
                              f'Имя: {users.get_item_value(chat_id, "name")}\n'
                              f'Статус (верующий/неверующий): {constants.STATUS.get(users.get_item_value(chat_id, "status"))}\n'
+                             f'Доп. контакт: {reserved_contact}\n' 
                              f'Тема: {users.get_item_value(chat_id, "action_type")}\n'
                              f'Дата обращения: {users.get_item_value(chat_id, "last_message_date")}\n'
-                             f'Сообщение: {users.get_item_value(chat_id, "last_message")}')
+                             f'Сообщение: {users.get_item_value(chat_id, "last_message")}', **k_wargs)
             bot.forward_message(settings.get_env_value("admin"), chat_id,
                                 message_id=users.get_item_value(chat_id, "last_message_id"))
+
             bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
             answer = 'Ваше обращение отправлено специалисту повторно. Приносим извинения за задержку консультации'
             bot.send_message(chat_id, answer, reply_markup=service.returntomainmenu_keyboard(show_website=True))
