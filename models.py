@@ -15,7 +15,7 @@ class RDB():
                      "name": name,
                      "chat_id": chat_id,
                      "last_message_id": m_id,
-                     "request": 0
+                     "request": 0,
                      }
 
         return structure
