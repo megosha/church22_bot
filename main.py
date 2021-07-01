@@ -25,7 +25,7 @@ def get_name(message, error=False):
     if error:
         msg = "Пожалуйста, укажите Ваше имя корректно (имя должно содержать только буквы)"
     else:
-        msg = "📨 Чтобы мы понимали, как к Вам обращаться, напишите, пожалуйста, как Вас зовут в ответном сообщении 👇👇👇"
+        msg = "📨 Представьтесь, пожалуйста, как Вас зовут? 🙂\n(Напишите ответное сообщение) 👇👇👇"
     first_dialog = bot.send_message(message.chat.id, msg)
     bot.register_next_step_handler(first_dialog, create_user)
 
@@ -67,15 +67,17 @@ def get_trouble(message, action):
     bot.forward_message(manager_chat, message.chat.id, message_id=message.id)
 
     if not reserved_contact:
-        k_wargs = {"reply_markup":service.render_keyboard({f'private_{message.chat.id}':"Спросить контакты"})}
+        k_wargs = {"reply_markup": service.render_keyboard(
+            {f'private_{message.chat.id}': "Спросить контакты (⚠️Нажимать только если аккаунт скрыт пользователем)"}
+        )}
     else:
-        k_wargs= {}
+        k_wargs = {}
 
     bot.send_message(manager_chat, msg, **k_wargs)
 
     bot.reply_to(message,
                  f'{users.get_item_value(message.chat.id, "name")}, Ваше обращение принято в обработку. '
-                 f'С Вами свяжутся в ближайшее время!🕐 Благодарим за обращение!',
+                 f'Мы с вами свяжемся в ближайшее время! 🕰 Благодарим за обращение! 🌷',
                  reply_markup=service.returntomainmenu_keyboard())
 
     users.change_item(message.chat.id, "request", "1")
@@ -92,26 +94,36 @@ def query_handler(call):
     try:
         bot.answer_callback_query(callback_query_id=call.id)
         if call.data == 'contact':
+            chat_id = call.message.chat.id
             answer = f'Сайт: {settings.get_env_value("website")}\nАдрес: пр. Комсомольский, 80, офис 304\n'
+            bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
             bot.send_message(call.message.chat.id, answer,
                              reply_markup=service.returntomainmenu_keyboard(show_website=True))
         elif call.data in settings.ACTIONS.keys():
-            answer = f'Тема:"{settings.ACTIONS[call.data]}"\n\n📨 Опишите свою ситуацию в ответе одним сообщением, пожалуйста. 👇'
-            sent = bot.send_message(call.message.chat.id, answer)
+            chat_id = call.message.chat.id
+            answer = f'Вы выбрали тему:"{settings.ACTIONS[call.data]}"\n\n📨 Опишите, пожалуйста, свою ситуацию более подробно в ответе ОДНИМ текстовым сообщением 👇👇👇'
+            sent = bot.send_message(chat_id, answer)
+            bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id,
+                                          reply_markup=service.returntomainmenu_keyboard())
+            bot.clear_step_handler(call.message)
             bot.register_next_step_handler(sent, get_trouble, action=call.data)
         elif call.data == 'menu':
-            bot.send_message(call.message.chat.id, 'Выберите тему для Вашего обращения',
+            chat_id = call.message.chat.id
+            bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
+            bot.send_message(chat_id, 'Выберите тему для Вашего обращения',
                              reply_markup=service.render_keyboard(settings.ACTIONS, True))
         elif call.data in constants.STATUS.keys():
             chat_id = call.message.chat.id
             users = models.RDB()
             users.change_item(chat_id, "status", str(call.data))
 
+            bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
             bot.send_message(chat_id,
-                             f'Приятно познакомиться, {users.get_item_value(chat_id, "name")}! '
-                             f'Спасибо, что уделили время и ответили на вопросы! 🙏\n\n'
-                             f'Какое направление Вас интересует? 👇\nКонсультации бесплатны 🔥 ',
+                             f'Приятно познакомиться, {users.get_item_value(chat_id, "name")}! 😉'
+                             f'Спасибо, что уделили время и представились 🙏\n\n'
+                             f'❓На какую тему Ваш вопрос? 👇\n(Все консультации для Вас бесплатны 🔥)',
                              reply_markup=service.render_keyboard(settings.ACTIONS, True))
+
         elif call.data == 'ignored':
             message = call.message
             chat_id = message.chat.id
@@ -122,7 +134,7 @@ def query_handler(call):
             users.change_item(chat_id, "request", "3")
 
             if not reserved_contact:
-                k_wargs = {"reply_markup": service.render_keyboard({f'private_{message.chat.id}': "Спросить контакты"})}
+                k_wargs = {"reply_markup": service.render_keyboard({f'private_{chat_id}': "Спросить контакты"})}
             else:
                 k_wargs = {}
             bot.send_message(settings.get_env_value('admin'),
@@ -131,7 +143,7 @@ def query_handler(call):
                              f'Пользователь: @{users.get_item_value(chat_id, "username")}\n'
                              f'Имя: {users.get_item_value(chat_id, "name")}\n'
                              f'Статус (верующий/неверующий): {constants.STATUS.get(users.get_item_value(chat_id, "status"))}\n'
-                             f'Доп. контакт: {reserved_contact}\n' 
+                             f'Доп. контакт: {reserved_contact}\n'
                              f'Тема: {users.get_item_value(chat_id, "action_type")}\n'
                              f'Дата обращения: {users.get_item_value(chat_id, "last_message_date")}\n'
                              f'Сообщение: {users.get_item_value(chat_id, "last_message")}', **k_wargs)
@@ -139,7 +151,7 @@ def query_handler(call):
                                 message_id=users.get_item_value(chat_id, "last_message_id"))
 
             bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
-            answer = 'Ваше обращение отправлено специалисту повторно. Приносим извинения за задержку консультации'
+            answer = 'Ваше обращение отправлено специалисту повторно. Просим прощения за задержку консультации 😔🌷'
             bot.send_message(chat_id, answer, reply_markup=service.returntomainmenu_keyboard(show_website=True))
             logging.warning(f'{datetime.now} - Ignored Button - processed')
 
@@ -148,15 +160,15 @@ def query_handler(call):
             users = models.RDB()
             users.change_item(chat_id, "request", "2")
             bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
-            answer = ('Благодарим за доверие к нам в Вашей ситуации! '
-                      'При возникновении вопросов всегда готовы Вас проконсультировать!\n\n'
-                      ' Пусть Господь благословит Вас!')
+            answer = ('Благодарим за доверие к нам в Вашей ситуации! 🙏'
+                      'При возникновении вопросов всегда готовы Вам помочь! 💒\n\n'
+                      'Пусть Господь благословит Вас!')
             bot.send_message(chat_id, answer, reply_markup=service.returntomainmenu_keyboard(show_website=True))
             logging.warning(f'{datetime.now} - Answered Button - processed')
         elif call.data.startswith('private_'):
             btn_id = call.data
             manager_chat = call.message.chat.id
-            chat_id = btn_id[btn_id.rfind('_')+1:]
+            chat_id = btn_id[btn_id.rfind('_') + 1:]
             get_contact = bot.send_message(
                 chat_id,
                 f'⚠️ Ваш профиль в telegram приватный. \n\nНапишите, пожалуйста, в ответе одним сообщением '
@@ -169,16 +181,15 @@ def query_handler(call):
     except Exception as err:
         logging.error(f'{datetime.now()} - {service._get_detail_exception_info(err)}')
 
+
 def additional_contact(message, manager_chat):
     bot.forward_message(manager_chat, message.chat.id, message_id=message.id)
-    contact =  message.text
+    contact = message.text
     users = models.RDB()
     users.change_item(message.chat.id, "contact", contact)
     bot.reply_to(message,
                  f'Спасибо, {users.get_item_value(message.chat.id, "name")}! Ваш контакт передан, скоро с Вами свяжутся 📲',
                  reply_markup=service.returntomainmenu_keyboard())
-
-
 
 
 @bot.message_handler(commands=['start', 'help'])
@@ -219,7 +230,7 @@ def feedback_checker():
                 dt_format = '%Y-%m-%d %H:%M:%S.%f'
                 dt = datetime.strptime(last_message_date, dt_format)
                 if abs(datetime.now() - dt).days >= 1:
-                # if abs(datetime.now() - dt).days < 1:
+                    # if abs(datetime.now() - dt).days < 1:
                     bot.send_message(chat_id.decode(), f'Здравствуйте, {name}! '
                                                        f'Недавно Вы оставляли обращение для консультации.\n\n'
                                                        f'С Вами связались по Вашему обращению? (выберите соответствующий вариант ниже 👇)',
