@@ -7,15 +7,12 @@ import settings
 import models
 import constants
 
-# TODO ddos check
-# TODO edit message
 # TODO refactor send message to manager and admin to one method
 
 import service
 
 BASE_DIR = Path(__file__).resolve().parent
 logfile = str(BASE_DIR / 'logs' / 'main.log')
-# logging.basicConfig(filename=logfile, filemode='a', level=logging.DEBUG)
 logging.basicConfig(filename=logfile, filemode='a')
 
 bot = telebot.TeleBot(settings.BOT_TOKEN)
