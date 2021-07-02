@@ -1,3 +1,5 @@
+import settings
+
 STATUS = {"1": 'Я прихожанин Христианской Церкви Барнаула',
           "2": 'Я неверующий',
           "3": 'Я верующий, но не посещаю церковь',
@@ -18,7 +20,17 @@ request = ((0, 'Нет активных обращений'),  # конечны�
            (4, 'Не получен ответ о завершении вопроса'),  # конечный статус
            )
 
-
+CONTACTS = (f'<u><b>НАШИ КОНТАКТЫ</b></u> 👇\n\n'
+           f'Сайт: {settings.get_env_value("website")}\nАдрес: {settings.get_env_value("address")}\n\n'
+           f'<b>Подпишись на наши группы!</b> 😉 \n\n'
+           f'YouTube: {settings.get_env_value("yt")} \n'
+           f'ВКонтакте: {settings.get_env_value("vk")} \n'
+           f'Instagram: {settings.get_env_value("ig")} \n'
+           f'Одноклассники: {settings.get_env_value("ok")} \n'
+           f'Telegram: {settings.get_env_value("tg")} \n'
+           f'Tik Tok: {settings.get_env_value("tt")} \n'
+           f'Facebook: {settings.get_env_value("fb")} \n'
+            )
 
 '''
 structure = {"987654":

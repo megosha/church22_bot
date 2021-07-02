@@ -7,8 +7,6 @@ import settings
 import models
 import constants
 
-# TODO refactor send message to manager and admin to one method
-
 import service
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -45,23 +43,27 @@ def create_user(message):
         send_welcome(message)
 
 
-def get_trouble(message, action):
-    users = models.RDB()
-
+def forward_trouble(users, message, action=None, admin=False):
     reserved_contact = users.get_item_value(message.chat.id, "contact")
-    manager_chat = settings.get_env_value(action)
-
-    msg = f'Заявка №: "{message.chat.id}_{message.id}"\n ' \
-          f'Пользователь: @{message.from_user.username}\n' \
-          f'Имя: {users.get_item_value(message.chat.id, "name")}\n' \
-          f'Статус (верующий/неверующий): {constants.STATUS.get(users.get_item_value(message.chat.id, "status"))}\n' \
-          f'Доп. контакт: {reserved_contact}\n' \
-          f'Тема: {settings.ACTIONS[action]}\n' \
-          f'Сообщение: {message.text}'
-    msg_log = msg.replace("\n", " - ")
-    logging.warning(f'{datetime.now} - in get_trouble - MANAGER - {manager_chat} DATA - {msg_log}')
-
-    bot.forward_message(manager_chat, message.chat.id, message_id=message.id)
+    if admin:
+        chat_id = message.chat.id
+        msg = (f'❌ ПОЛЬЗОВАТЕЛЬ НЕ ПОЛУЧИЛ КОНСУЛЬТАЦИЮ!\n'
+               f'Заявка №: {chat_id}_{users.get_item_value(chat_id, "last_message_id")}"\n'
+               f'Пользователь: @{message.chat.username}\n'
+               f'Имя: {users.get_item_value(chat_id, "name")}\n'
+               f'Статус (верующий/неверующий): {constants.STATUS.get(users.get_item_value(chat_id, "status"))}\n'
+               f'Доп. контакт: {reserved_contact}\n'
+               f'Тема: {users.get_item_value(chat_id, "action_type")}\n'
+               f'Дата обращения: {users.get_item_value(chat_id, "last_message_date")}\n'
+               f'Сообщение: {users.get_item_value(chat_id, "last_message")}')
+    else:
+        msg = (f'Заявка №: "{message.chat.id}_{message.id}"\n '
+       f'Пользователь: @{message.from_user.username}\n'
+       f'Имя: {users.get_item_value(message.chat.id, "name")}\n'
+       f'Статус (верующий/неверующий): {constants.STATUS.get(users.get_item_value(message.chat.id, "status"))}\n'
+       f'Доп. контакт: {reserved_contact}\n'
+       f'Тема: {settings.ACTIONS[action] if action is not None else ""}\n'
+       f'Сообщение: {message.text}')
 
     if not reserved_contact:
         k_wargs = {"reply_markup": service.render_keyboard(
@@ -70,6 +72,20 @@ def get_trouble(message, action):
     else:
         k_wargs = {}
 
+    return msg, k_wargs
+
+
+def get_trouble(message, action):
+    users = models.RDB()
+
+    manager_chat = settings.get_env_value(action)
+
+    msg, k_wargs = forward_trouble(users, message, action)
+
+    msg_log = msg.replace("\n", " - ")
+    logging.warning(f'{datetime.now} - in get_trouble - MANAGER - {manager_chat} DATA - {msg_log}')
+
+    bot.forward_message(manager_chat, message.chat.id, message_id=message.id)
     bot.send_message(manager_chat, msg, **k_wargs)
 
     bot.reply_to(message,
@@ -92,10 +108,10 @@ def query_handler(call):
         bot.answer_callback_query(callback_query_id=call.id)
         if call.data == 'contact':
             chat_id = call.message.chat.id
-            answer = f'Сайт: {settings.get_env_value("website")}\nАдрес: пр. Комсомольский, 80, офис 304\n'
+            answer = constants.CONTACTS
             bot.edit_message_reply_markup(chat_id=chat_id, message_id=call.message.id, reply_markup=None)
             bot.send_message(call.message.chat.id, answer,
-                             reply_markup=service.returntomainmenu_keyboard(show_website=True))
+                             reply_markup=service.returntomainmenu_keyboard(show_website=True), parse_mode="HTML")
         elif call.data in settings.ACTIONS.keys():
             chat_id = call.message.chat.id
             answer = f'Вы выбрали тему:"{settings.ACTIONS[call.data]}"\n\n📨 Опишите, пожалуйста, свою ситуацию более подробно в ответе ОДНИМ текстовым сообщением 👇👇👇'
@@ -126,24 +142,11 @@ def query_handler(call):
             chat_id = message.chat.id
 
             users = models.RDB()
-            reserved_contact = users.get_item_value(message.chat.id, "contact")
-
             users.change_item(chat_id, "request", "3")
 
-            if not reserved_contact:
-                k_wargs = {"reply_markup": service.render_keyboard({f'private_{chat_id}': "Спросить контакты"})}
-            else:
-                k_wargs = {}
-            bot.send_message(settings.get_env_value('admin'),
-                             f'❌ ПОЛЬЗОВАТЕЛЬ НЕ ПОЛУЧИЛ КОНСУЛЬТАЦИЮ!\n'
-                             f'Заявка №: {chat_id}_{users.get_item_value(chat_id, "last_message_id")}"\n'
-                             f'Пользователь: @{users.get_item_value(chat_id, "username")}\n'
-                             f'Имя: {users.get_item_value(chat_id, "name")}\n'
-                             f'Статус (верующий/неверующий): {constants.STATUS.get(users.get_item_value(chat_id, "status"))}\n'
-                             f'Доп. контакт: {reserved_contact}\n'
-                             f'Тема: {users.get_item_value(chat_id, "action_type")}\n'
-                             f'Дата обращения: {users.get_item_value(chat_id, "last_message_date")}\n'
-                             f'Сообщение: {users.get_item_value(chat_id, "last_message")}', **k_wargs)
+            msg, k_wargs = forward_trouble(users, message, admin=True)
+
+            bot.send_message(settings.get_env_value('admin'), msg, **k_wargs)
             bot.forward_message(settings.get_env_value("admin"), chat_id,
                                 message_id=users.get_item_value(chat_id, "last_message_id"))
 
