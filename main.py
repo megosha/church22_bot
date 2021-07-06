@@ -85,9 +85,6 @@ def get_trouble(message, action):
     msg_log = msg.replace("\n", " - ")
     logging.warning(f'{datetime.now} - in get_trouble - MANAGER - {manager_chat} DATA - {msg_log}')
 
-    bot.forward_message(manager_chat, message.chat.id, message_id=message.id)
-    bot.send_message(manager_chat, msg, **k_wargs)
-
     bot.reply_to(message,
                  f'{users.get_item_value(message.chat.id, "name")}, Ваше обращение принято в обработку. '
                  f'Мы с вами свяжемся в ближайшее время! 🕰 Благодарим за обращение! 🌷',
@@ -99,6 +96,16 @@ def get_trouble(message, action):
     users.change_item(message.chat.id, "last_message_date", f"{datetime.now()}")
     users.change_item(message.chat.id, "action_type", f"{settings.ACTIONS[action]}")
     logging.warning(f'{datetime.now} - USER DATA AFTER GET TROUBLE - {users.get_object(message.chat.id)}')
+
+    try:
+        bot.send_message(manager_chat, msg, **k_wargs)
+        bot.forward_message(manager_chat, message.chat.id, message_id=message.id)
+    except telebot.apihelper.ApiTelegramException:
+        msg = '⚠️ ДОСТУП БОТА К МЕНЕДЖЕРУ ОГРАНИЧЕН! СЛЕДУЮЩЕЕ ОБРАЩЕНИЕ НЕ ДОСТАВЛЕНО ⬇️\n\n' + msg
+        bot.send_message(settings.get_env_value('superadmin'), msg, **k_wargs)
+        bot.forward_message(settings.get_env_value('superadmin'), message.chat.id, message_id=message.id)
+        bot.send_message(settings.get_env_value('admin'), msg, **k_wargs)
+        bot.forward_message(settings.get_env_value('admin'), message.chat.id, message_id=message.id)
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -237,10 +244,13 @@ def feedback_checker():
                 dt = datetime.strptime(last_message_date, dt_format)
                 if abs(datetime.now() - dt).days >= 1:
                     # if abs(datetime.now() - dt).days < 1:
-                    bot.send_message(chat_id.decode(), f'Здравствуйте, {name}! '
+                    try:
+                        bot.send_message(chat_id.decode(), f'Здравствуйте, {name}! '
                                                        f'Недавно Вы оставляли обращение для консультации.\n\n'
                                                        f'С Вами связались по Вашему обращению? (выберите соответствующий вариант ниже 👇)',
                                      reply_markup=service.render_keyboard(constants.FEEDBACK))
+                    except telebot.apihelper.ApiTelegramException:
+                        pass
                     users.change_item(chat_id.decode(), "request", "4")
                     logging.warning(
                         f'{datetime.now()} - asking for feedback - USER_ID {users.get_item_value(chat_id, "tm_id")} - '
