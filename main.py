@@ -35,7 +35,7 @@ def create_user(message):
         if service.name_is_valid(name):
             body = users.init_item(chat_id, tm_id, name, m_id)
             users.set_item(chat_id, body)
-            bot.send_message(message.chat.id, f"❓ {name}, являетесь ли Вы верующим человеком?",
+            bot.send_message(message.chat.id, f"❓ {name}, посещаете ли Вы церковь?",
                              reply_markup=service.render_keyboard(constants.STATUS))
         else:
             get_name(message, True)
@@ -103,6 +103,8 @@ def get_trouble(message, action):
 
 @bot.callback_query_handler(func=lambda call: True)
 def query_handler(call):
+    if str(call.message.chat.id).startswith('-'):
+        return None
     logging.warning(f'{datetime.now} - in query_handler/ Clicked Button - {call.data}')
     try:
         bot.answer_callback_query(callback_query_id=call.id)
@@ -194,6 +196,8 @@ def additional_contact(message, manager_chat):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
+    if str(message.chat.id).startswith('-'):
+        return None
     logging.warning(f'{datetime.now} - clicked start Button')
 
     if message.from_user.is_bot:
@@ -220,6 +224,8 @@ def feedback_checker():
     while True:
         logging.warning(f'{datetime.now()} - start feedback_checker cycle')
         for chat_id in models.db.scan_iter('*'):
+            if str(chat_id).startswith('-'):
+                return None
             users = models.RDB()
             # obj = users.get_object(chat_id)
             request_status = users.get_item_value(chat_id, 'request')
