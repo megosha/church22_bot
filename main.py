@@ -263,6 +263,13 @@ def feedback_checker():
 if __name__ == '__main__':
     logging.warning(f'{datetime.now()} - starting THREAD')
     Thread(target=feedback_checker).start()
-    logging.warning(f'{datetime.now()} - starting BOT')
-    bot.polling(none_stop=True)
+    while True:
+        logging.warning(f'{datetime.now()} - starting BOT')
+        try:
+            bot.polling(none_stop=True)
+        except Exception as err:
+            logging.warning(f'{datetime.now()} - {service._get_detail_exception_info(err)}')
+            sleep(5)
+
+    # bot.polling(none_stop=True)
     # bot.polling()
